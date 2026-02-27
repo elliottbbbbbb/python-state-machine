@@ -35,6 +35,10 @@ class OrderSteps(Enum):
 
 class OrderMachine(StateMachine):
 
+    def __init__(self):
+        super().__init__()
+        self.orders_processed = 0  # custom instance state
+
     def define_states(self):
         return OrderSteps
 
@@ -50,30 +54,33 @@ class OrderMachine(StateMachine):
         return [
             StateTransition(OrderSteps.VALIDATE, OrderSteps.CHARGE),
             StateTransition(OrderSteps.CHARGE,   OrderSteps.SHIP),
+            # SHIP and ERROR have no outgoing transitions — reaching them ends the run
         ]
 
     def get_initial_state(self):
         return OrderSteps.VALIDATE
 
-    def _handle_validate(self, ctx: StateExecutionContext) -> StateResult:
+    def _handle_validate(self, context: StateExecutionContext) -> StateResult:
         print("Validating order...")
         return StateResult.SUCCESS
 
-    def _handle_charge(self, ctx: StateExecutionContext) -> StateResult:
+    def _handle_charge(self, context: StateExecutionContext) -> StateResult:
         print("Charging customer...")
         return StateResult.SUCCESS
 
-    def _handle_ship(self, ctx: StateExecutionContext) -> StateResult:
+    def _handle_ship(self, context: StateExecutionContext) -> StateResult:
         print("Shipping order!")
+        self.orders_processed += 1
         return StateResult.SUCCESS
 
-    def _handle_error(self, ctx: StateExecutionContext) -> StateResult:
+    def _handle_error(self, context: StateExecutionContext) -> StateResult:
         print("Handling error...")
         return StateResult.SUCCESS
 
 
 machine = OrderMachine()
 machine.run()
+print(f"Orders processed: {machine.orders_processed}")
 ```
 
 ## State results
@@ -135,7 +142,7 @@ machine = MyMachine()
 machine.enable_watchdog(timeout_seconds=120)
 
 # In a state handler, call this when meaningful work is done:
-def _handle_work(self, ctx):
+def _handle_work(self, context):
     do_something()
     self.record_activity()  # resets the watchdog timer
     return StateResult.SUCCESS
