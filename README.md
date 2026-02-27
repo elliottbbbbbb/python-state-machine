@@ -89,7 +89,7 @@ print(f"Orders processed: {machine.orders_processed}")
 |---|---|
 | `SUCCESS` | State completed — follow transitions to next state |
 | `FAILURE` | State failed — retry if retries remain, otherwise failover |
-| `RETRY` | Retry immediately without counting as a failed attempt |
+| `RETRY` | Retry immediately — counts as a failed attempt toward `max_retries` |
 | `SKIP` | Skip this state — follow transitions as if succeeded |
 | `TIMEOUT` | State exceeded its time limit — treated as failure |
 
@@ -135,17 +135,27 @@ StateTransition(
 
 ## Watchdog
 
-Stop execution automatically if no progress is made:
+Raise `RuntimeError` if no progress is recorded within a threshold:
 
 ```python
 machine = MyMachine()
 machine.enable_watchdog(timeout_seconds=120)
 
-# In a state handler, call this when meaningful work is done:
-def _handle_work(self, context):
-    do_something()
-    self.record_activity()  # resets the watchdog timer
-    return StateResult.SUCCESS
+try:
+    machine.run()
+except RuntimeError as e:
+    print(f"Watchdog triggered: {e}")
+```
+
+Call `self.record_activity()` inside any handler where meaningful progress is made to reset the timer:
+
+```python
+class MyMachine(StateMachine):
+    ...
+    def _handle_work(self, context: StateExecutionContext) -> StateResult:
+        do_something()
+        self.record_activity()  # resets the watchdog timer
+        return StateResult.SUCCESS
 ```
 
 ## Introspection
